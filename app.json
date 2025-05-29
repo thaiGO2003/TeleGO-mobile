@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "TeleGO",
+    "slug": "TeleGO",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./src/assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "notification": {
+      "icon": "./src/assets/icons/TeleGO.png",
+      "color": "#FF6B81",
+      "androidMode": "default",
+      "iosDisplayInForeground": true
+    },
+    "splash": {
+      "image": "./src/assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.reactnative.devgo2003.mobileapp"
+    },
+    "web": {
+      "favicon": "./src/assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "62f4c291-ed02-4ed0-9686-5bf1f9a9b569"
+      }
+    },
+    "plugins": [[
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "recordAudioAndroid": true
+        }
+      ],
+      "react-native-video",
+      "expo-web-browser"
+    ]
+  }
+}
