@@ -296,22 +296,10 @@ const MessagesScreen = () => {
 
     socket.on("msg-receive", handleMessageReceive);
     socket.on("group-msg-receive", handleMessageReceive);
-    socket.on("groupMemberAdded", handleMessageReceive);
-    socket.on("groupMemberRemoved", handleMessageReceive);
-    socket.on("groupUpdated", handleMessageReceive);
-    socket.on("groupRenamed", handleMessageReceive);
-    socket.on("avatarUpdated", handleMessageReceive);
-    socket.on("groupDeleted", handleMessageReceive);
 
     return () => {
       socket.off("msg-receive", handleMessageReceive);
       socket.off("group-msg-receive", handleMessageReceive);
-      socket.off("groupMemberAdded", handleMessageReceive);
-      socket.off("groupMemberRemoved", handleMessageReceive);
-      socket.off("groupUpdated", handleMessageReceive);
-      socket.off("groupRenamed", handleMessageReceive);
-      socket.off("avatarUpdated", handleMessageReceive);
-      socket.off("groupDeleted", handleMessageReceive);
     };
   }, [user, fetchMessages]);
 

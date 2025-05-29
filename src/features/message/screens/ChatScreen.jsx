@@ -66,7 +66,7 @@ const ChatScreen = ({ navigation, route }) => {
   const { user } = useContext(AuthContext);
   const [groupInfo, setGroupInfo] = useState(null);
   const { otherUserIds, groupId } = route.params;
-  const percentWidth = 90;
+  const percentWidth = 100;
   const [isSending, setIsSending] = useState(false);
   const spinValue = useRef(new Animated.Value(0)).current;
   const [pendingFiles, setPendingFiles] = useState([]);
@@ -616,30 +616,25 @@ const ChatScreen = ({ navigation, route }) => {
   };
 
   useEffect(() => {
-    if (user && (otherUsers.length > 0 || isGroupChat)) {
-      fetchMessages();
+  if (user && (otherUsers.length > 0 || isGroupChat)) {
+    fetchMessages();
 
-      const handleMessageReceive = (message) => {
-        console.log("Received message:", message);
-        if (isGroupChat && message.groupId === groupId) {
-          if (
-            message.type === "poll-created" ||
-            message.type === "poll-updated"
-          ) {
-            fetchMessages();
-          } else {
-            fetchMessages();
-          }
-        } else if (!isGroupChat && message.from === otherUserIds[0]) {
+    const handleMessageReceive = (message) => {
+      console.log("Nhận tin nhắn:", message);
+      if (isGroupChat && message.groupId === groupId) {
+        if (message.type === "poll-created" || message.type === "poll-updated") {
+          fetchMessages();
+        } else {
           fetchMessages();
         }
-      };
+      } else if (!isGroupChat && message.from === otherUserIds[0]) {
+        fetchMessages();
+      }
+    };
 
-      const handleMessageRecalled = ({
-        messageId,
-        groupId: recalledGroupId,
-      }) => {
-        console.log("Message recalled:", messageId);
+    const handleMessageRecalled = async ({ messageId, groupId: recalledGroupId }) => {
+      console.log("Tin nhắn thu hồi:", messageId);
+      try {
         if (isGroupChat && recalledGroupId === groupId) {
           setMessages((prevMessages) =>
             prevMessages.map((msg) =>
@@ -654,6 +649,14 @@ const ChatScreen = ({ navigation, route }) => {
                 : msg
             )
           );
+          const isPinned = pinnedMessages.some((msg) => msg._id === messageId);
+          if (isPinned) {
+            await unpinMessage(messageId, user._id);
+          }
+          setPinnedMessages((prevPinned) =>
+            prevPinned.filter((msg) => msg._id !== messageId)
+          );
+          await fetchPinnedMessages();
         } else if (!isGroupChat && otherUserIds.includes(message.from)) {
           setMessages((prevMessages) =>
             prevMessages.map((msg) =>
@@ -668,65 +671,115 @@ const ChatScreen = ({ navigation, route }) => {
                 : msg
             )
           );
-        }
-      };
-
-      const handleMessageDeleted = ({ messageId, groupId: deletedGroupId }) => {
-        console.log("Message deleted:", messageId);
-        if (isGroupChat && deletedGroupId === groupId) {
-          setMessages((prevMessages) =>
-            prevMessages.filter((m) => m._id !== messageId)
+          const isPinned = pinnedMessages.some((msg) => msg._id === messageId);
+          if (isPinned) {
+            await unpinMessage(messageId, user._id);
+          }
+          setPinnedMessages((prevPinned) =>
+            prevPinned.filter((msg) => msg._id !== messageId)
           );
-          setPinnedMessages((prev) => prev.filter((m) => m._id !== messageId));
-        } else if (!isGroupChat && otherUserIds.includes(message.from)) {
-          setMessages((prevMessages) =>
-            prevMessages.filter((m) => m._id !== messageId)
-          );
-          setPinnedMessages((prev) => prev.filter((m) => m._id !== messageId));
+          await fetchPinnedMessages();
         }
-      };
+      } catch (error) {
+        console.error("Lỗi xử lý thu hồi tin nhắn:", error);
+        Alert.alert("Lỗi", "Không thể xử lý thu hồi tin nhắn.");
+      }
+    };
 
-      const handlePinMessage = ({ messageId }) => {
-        console.log("Message pinned:", messageId);
+    const handleMessageDeleted = ({ messageId, groupId: deletedGroupId }) => {
+      console.log("Tin nhắn xóa:", messageId);
+      if (isGroupChat && deletedGroupId === groupId) {
+        setMessages((prevMessages) =>
+          prevMessages.filter((m) => m._id !== messageId)
+        );
+        setPinnedMessages((prev) => prev.filter((m) => m._id !== messageId));
+      } else if (!isGroupChat && otherUserIds.includes(message.from)) {
+        setMessages((prevMessages) =>
+          prevMessages.filter((m) => m._id !== messageId)
+        );
+        setPinnedMessages((prev) => prev.filter((m) => m._id !== messageId));
+      }
+    };
+
+    const handlePinMessage = ({ messageId }) => {
+      console.log("Tin nhắn ghim:", messageId);
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg._id === messageId ? { ...msg, pinned: true } : msg
+        )
+      );
+      fetchPinnedMessages();
+    };
+
+    const handleUnpinMessage = ({ messageId }) => {
+      console.log("Tin nhắn bỏ ghim:", messageId);
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg._id === messageId ? { ...msg, pinned: false } : msg
+        )
+      );
+      fetchPinnedMessages();
+    };
+
+    // Thêm hàm xử lý phản hồi emoji
+    const handleMessageReacted = ({ messageId, userId, emoji, groupId: reactedGroupId }) => {
+      console.log("Tin nhắn được react:", { messageId, userId, emoji });
+      if (isGroupChat && reactedGroupId === groupId) {
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
-            msg._id === messageId ? { ...msg, pinned: true } : msg
+            msg._id === messageId
+              ? {
+                  ...msg,
+                  reactions: [
+                    ...(msg.reactions || []).filter((r) => r.userId !== userId),
+                    { userId, emoji },
+                  ],
+                }
+              : msg
           )
         );
-        fetchPinnedMessages();
-      };
-
-      const handleUnpinMessage = ({ messageId }) => {
-        console.log("Message unpinned:", messageId);
+      } else if (!isGroupChat && (otherUserIds.includes(userId) || userId === user._id)) {
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
-            msg._id === messageId ? { ...msg, pinned: false } : msg
+            msg._id === messageId
+              ? {
+                  ...msg,
+                  reactions: [
+                    ...(msg.reactions || []).filter((r) => r.userId !== userId),
+                    { userId, emoji },
+                  ],
+                }
+              : msg
           )
         );
-        fetchPinnedMessages();
-      };
+      }
+    };
 
-      socket.on("msg-receive", handleMessageReceive);
-      socket.on("group-msg-receive", handleMessageReceive);
-      socket.on("msg-recall", handleMessageRecalled);
-      socket.on("group-msg-recall", handleMessageRecalled);
-      socket.on("msg-delete", handleMessageDeleted);
-      socket.on("group-msg-delete", handleMessageDeleted);
-      socket.on("pin-message", handlePinMessage);
-      socket.on("unpin-message", handleUnpinMessage);
+    socket.on("msg-receive", handleMessageReceive);
+    socket.on("group-msg-receive", handleMessageReceive);
+    socket.on("msg-recall", handleMessageRecalled);
+    socket.on("group-msg-recall", handleMessageRecalled);
+    socket.on("msg-delete", handleMessageDeleted);
+    socket.on("group-msg-delete", handleMessageDeleted);
+    socket.on("pin-message", handlePinMessage);
+    socket.on("unpin-message", handleUnpinMessage);
+    socket.on("msg-react", handleMessageReacted);
+    socket.on("group-msg-react", handleMessageReacted);
 
-      return () => {
-        socket.off("msg-receive", handleMessageReceive);
-        socket.off("group-msg-receive", handleMessageReceive);
-        socket.off("msg-recall", handleMessageRecalled);
-        socket.off("group-msg-recall", handleMessageRecalled);
-        socket.off("msg-delete", handleMessageDeleted);
-        socket.off("group-msg-delete", handleMessageDeleted);
-        socket.off("pin-message", handlePinMessage);
-        socket.off("unpin-message", handleUnpinMessage);
-      };
-    }
-  }, [user, otherUsers, isGroupChat, groupId]);
+    return () => {
+      socket.off("msg-receive", handleMessageReceive);
+      socket.off("group-msg-receive", handleMessageReceive);
+      socket.off("msg-recall", handleMessageRecalled);
+      socket.off("group-msg-recall", handleMessageRecalled);
+      socket.off("msg-delete", handleMessageDeleted);
+      socket.off("group-msg-delete", handleMessageDeleted);
+      socket.off("pin-message", handlePinMessage);
+      socket.off("unpin-message", handleUnpinMessage);
+      socket.off("msg-react", handleMessageReacted);
+      socket.off("group-msg-react", handleMessageReacted);
+    };
+  }
+}, [user, otherUsers, isGroupChat, groupId]);
 
   const getMimeTypeFromUri = (uri) => {
     const extension = uri.split(".").pop().toLowerCase();
@@ -894,11 +947,16 @@ const ChatScreen = ({ navigation, route }) => {
   const renderPinnedMessages = () => {
     if (pinnedMessages.length === 0) return null;
 
+    // Lọc thêm tin nhắn bị thu hồi trước khi render
+    const validPinnedMessages = pinnedMessages.filter((msg) => !msg.recalled);
+
+    if (validPinnedMessages.length === 0) return null;
+
     return (
       <View style={styles.pinnedMessagesContainer}>
         <Text style={styles.pinnedMessagesTitle}>Tin nhắn đã ghim</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {pinnedMessages.map((msg) => (
+          {validPinnedMessages.map((msg) => (
             <TouchableOpacity
               key={msg._id}
               style={styles.pinnedMessageCard}
@@ -1148,47 +1206,47 @@ const ChatScreen = ({ navigation, route }) => {
 
       const isMineReply = replyTo.user?._id === user._id;
       console.log("isSystem: ", isSystem);
-      
-        return (
-          <View
+
+      return (
+        <View
+          style={{
+            backgroundColor: isMineReply ? "#E8ECEF" : "#D8D8D8",
+            borderRadius: 12,
+            padding: 8,
+            marginBottom: 8,
+            borderLeftWidth: 4,
+            borderLeftColor: isMineReply ? "#4A90E2" : "#9B59B6",
+            opacity: 0.9,
+          }}
+        >
+          <Text
             style={{
-              backgroundColor: isMineReply ? "#E8ECEF" : "#D8D8D8",
-              borderRadius: 12,
-              padding: 8,
-              marginBottom: 8,
-              borderLeftWidth: 4,
-              borderLeftColor: isMineReply ? "#4A90E2" : "#9B59B6",
-              opacity: 0.9,
+              fontWeight: "600",
+              fontSize: 12,
+              marginBottom: 4,
+              color: "#2C3E50",
             }}
           >
+            {replyTo.user?.name || "Người dùng"}
+          </Text>
+          {(replyTo.recalled || replyTo.text?.trim()) && (
             <Text
               style={{
-                fontWeight: "600",
-                fontSize: 12,
-                marginBottom: 4,
                 color: "#2C3E50",
+                fontSize: 14,
+                fontStyle: replyTo.recalled ? "italic" : "normal",
               }}
             >
-              {replyTo.user?.name || "Người dùng"}
+              {replyTo.recalled ? "Tin nhắn đã được thu hồi" : replyTo.text}
             </Text>
-            {(replyTo.recalled || replyTo.text?.trim()) && (
-              <Text
-                style={{
-                  color: "#2C3E50",
-                  fontSize: 14,
-                  fontStyle: replyTo.recalled ? "italic" : "normal",
-                }}
-              >
-                {replyTo.recalled ? "Tin nhắn đã được thu hồi" : replyTo.text}
-              </Text>
-            )}
-            {!replyTo.recalled && replyTo.files?.length > 0 && (
-              <View style={{ marginTop: 5 }}>
-                {props.renderCustomView({ ...props, currentMessage: replyTo })}
-              </View>
-            )}
-          </View>
-        );
+          )}
+          {!replyTo.recalled && replyTo.files?.length > 0 && (
+            <View style={{ marginTop: 5 }}>
+              {props.renderCustomView({ ...props, currentMessage: replyTo })}
+            </View>
+          )}
+        </View>
+      );
     };
 
     const renderPoll = (poll) => {
@@ -1253,14 +1311,96 @@ const ChatScreen = ({ navigation, route }) => {
         </View>
       );
     };
-if (isSystem) {
-        return (
-          <View style={styles.systemMessageContainer}>
-            <View style={styles.systemMessageWrapper}>
-              <Text style={styles.systemMessageText}>
-                {currentRenderMessage.text}
-              </Text>
-              <Text style={styles.systemMessageTime}>
+    if (isSystem) {
+      return (
+        <View style={styles.systemMessageContainer}>
+          <View style={styles.systemMessageWrapper}>
+            <Text style={styles.systemMessageText}>
+              {currentRenderMessage.text}
+            </Text>
+            <Text style={styles.systemMessageTime}>
+              {new Date(currentRenderMessage.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </Text>
+          </View>
+        </View>
+      );
+    } else
+      return (
+        <BubbleWrapper
+          onLongPress={() => {
+            handleLongPress(props.currentMessage, isRecalled);
+          }}
+          delayLongPress={150}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-end",
+              justifyContent: isMine ? "flex-end" : "flex-start",
+              marginVertical: 6,
+              marginHorizontal: 12,
+            }}
+          >
+            <View
+              style={[
+                styles.bubble,
+                {
+                  maxWidth: percentWidth + "%",
+                  backgroundColor: isMine ? "#3797F0" : "#e0e0e0",
+                  opacity: isRecalled ? 0.7 : 1,
+                  borderWidth: isSelected
+                    ? 2
+                    : currentRenderMessage.pinned
+                    ? 2
+                    : 0,
+                  borderColor: isSelected
+                    ? "#FFD700"
+                    : currentRenderMessage.pinned
+                    ? "#FFD700"
+                    : "transparent",
+                },
+                isMine ? styles.bubbleRight : styles.bubbleLeft,
+              ]}
+            >
+              {isReply && renderReplyTo(currentRenderMessage.replyTo)}
+              {!(currentRenderMessage.text?.trim() === "" && !isRecalled) && (
+                <Text
+                  style={{
+                    color: isRecalled
+                      ? "#FFFFFF"
+                      : isMine
+                      ? "#FFFFFF"
+                      : "#000000",
+                    fontSize: 16,
+                    fontStyle: isRecalled ? "italic" : "normal",
+                  }}
+                >
+                  {isRecalled
+                    ? "Tin nhắn đã được thu hồi"
+                    : currentRenderMessage.text}
+                </Text>
+              )}
+              {!isRecalled && currentRenderMessage.files?.length > 0 && (
+                <View style={{ marginTop: 8 }}>
+                  {props.renderCustomView(props)}
+                </View>
+              )}
+              {!isRecalled && currentRenderMessage.poll && (
+                <View style={{ marginTop: 8 }}>
+                  {renderPoll(currentRenderMessage.poll)}
+                </View>
+              )}
+              <Text
+                style={{
+                  fontSize: 10,
+                  color: "#ffffff",
+                  textAlign: isMine ? "right" : "left",
+                  marginTop: 4,
+                }}
+              >
                 {new Date(currentRenderMessage.createdAt).toLocaleTimeString(
                   [],
                   {
@@ -1269,123 +1409,41 @@ if (isSystem) {
                   }
                 )}
               </Text>
+              {isGroupChat && !isMine && (
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: "#ffffff",
+                    textAlign: "left",
+                    marginTop: 2,
+                  }}
+                >
+                  {currentRenderMessage.user.name}
+                </Text>
+              )}
+              {!isRecalled && Object.keys(aggregatedReactions).length > 0 && (
+                <TouchableOpacity
+                  style={styles.reactionsContainer}
+                  onPress={() => {
+                    setSelectedMessageForAction(currentRenderMessage);
+                    setSelectedMessageReactions(currentRenderMessage.reactions);
+                    setReactionModalVisible(true);
+                  }}
+                >
+                  {Object.entries(aggregatedReactions).map(([emoji, count]) => (
+                    <View key={emoji} style={styles.reactionItem}>
+                      <Text style={styles.reactionEmoji}>{emoji}</Text>
+                      {count > 1 && (
+                        <Text style={styles.reactionCount}>{count}</Text>
+                      )}
+                    </View>
+                  ))}
+                </TouchableOpacity>
+              )}
             </View>
           </View>
-        );
-      } else
-    return (
-      <BubbleWrapper
-        onLongPress={() => {
-          handleLongPress(props.currentMessage, isRecalled);
-        }}
-        delayLongPress={150}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "flex-end",
-            justifyContent: isMine ? "flex-end" : "flex-start",
-            marginVertical: 6,
-            marginHorizontal: 12,
-          }}
-        >
-          <View
-            style={[
-              styles.bubble,
-              {
-                maxWidth: percentWidth + "%",
-                backgroundColor: isMine ? "#3797F0" : "#e0e0e0",
-                opacity: isRecalled ? 0.7 : 1,
-                borderWidth: isSelected
-                  ? 2
-                  : currentRenderMessage.pinned
-                  ? 2
-                  : 0,
-                borderColor: isSelected
-                  ? "#FFD700"
-                  : currentRenderMessage.pinned
-                  ? "#FFD700"
-                  : "transparent",
-              },
-              isMine ? styles.bubbleRight : styles.bubbleLeft,
-            ]}
-          >
-            {isReply && renderReplyTo(currentRenderMessage.replyTo)}
-            {!(currentRenderMessage.text?.trim() === "" && !isRecalled) && (
-              <Text
-                style={{
-                  color: isRecalled
-                    ? "#7F8C8D"
-                    : isMine
-                    ? "#FFFFFF"
-                    : "#000000",
-                  fontSize: 16,
-                  fontStyle: isRecalled ? "italic" : "normal",
-                }}
-              >
-                {isRecalled
-                  ? "Tin nhắn đã được thu hồi"
-                  : currentRenderMessage.text}
-              </Text>
-            )}
-            {!isRecalled && currentRenderMessage.files?.length > 0 && (
-              <View style={{ marginTop: 8 }}>
-                {props.renderCustomView(props)}
-              </View>
-            )}
-            {!isRecalled && currentRenderMessage.poll && (
-              <View style={{ marginTop: 8 }}>
-                {renderPoll(currentRenderMessage.poll)}
-              </View>
-            )}
-            <Text
-              style={{
-                fontSize: 10,
-                color: "#ffffff",
-                textAlign: isMine ? "right" : "left",
-                marginTop: 4,
-              }}
-            >
-              {new Date(currentRenderMessage.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </Text>
-            {isGroupChat && !isMine && (
-              <Text
-                style={{
-                  fontSize: 12,
-                  color: "#ffffff",
-                  textAlign: "left",
-                  marginTop: 2,
-                }}
-              >
-                {currentRenderMessage.user.name}
-              </Text>
-            )}
-            {!isRecalled && Object.keys(aggregatedReactions).length > 0 && (
-              <TouchableOpacity
-                style={styles.reactionsContainer}
-                onPress={() => {
-                  setSelectedMessageForAction(currentRenderMessage);
-                  setSelectedMessageReactions(currentRenderMessage.reactions);
-                  setReactionModalVisible(true);
-                }}
-              >
-                {Object.entries(aggregatedReactions).map(([emoji, count]) => (
-                  <View key={emoji} style={styles.reactionItem}>
-                    <Text style={styles.reactionEmoji}>{emoji}</Text>
-                    {count > 1 && (
-                      <Text style={styles.reactionCount}>{count}</Text>
-                    )}
-                  </View>
-                ))}
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </BubbleWrapper>
-    );
+        </BubbleWrapper>
+      );
   };
 
   const getFileIcon = (uri) => {
@@ -1569,79 +1627,114 @@ if (isSystem) {
           }}
         />
         <MessageActionSheet
-          isVisible={messageActionSheetVisible}
-          onClose={() => setMessageActionSheetVisible(false)}
-          options={[
-            selectedMessageForAction?.user?._id === user._id
-              ? "↩️ Thu hồi"
-              : null,
-            "🗑️ Xóa phía tôi",
-            "📤 Chuyển tiếp",
-            "💬 Trả lời",
-            selectedMessageForAction?.pinned ? "📌 Bỏ ghim" : "📌 Ghim",
-          ].filter(Boolean)}
-          onSelect={async (option, msg) => {
-            if (option === "↩️ Thu hồi") {
-              await recallMessage(msg._id);
-              setMessages((prevMessages) =>
-                prevMessages.map((m) =>
-                  m._id === msg._id
-                    ? {
-                        ...m,
-                        text: "Tin nhắn thu hồi...",
-                        recalled: true,
-                        files: [],
-                      }
-                    : m
-                )
-              );
-            } else if (option === "🗑️ Xóa phía tôi") {
-              try {
-                await deleteMessageForMe(msg._id, user._id);
-                setMessages((prevMessages) =>
-                  prevMessages.filter((m) => m._id !== msg._id)
-                );
-              } catch (error) {
-                Alert.alert("Lỗi", "Không thể xóa tin nhắn vào lúc này.");
+  isVisible={messageActionSheetVisible}
+  onClose={() => setMessageActionSheetVisible(false)}
+  options={[
+    selectedMessageForAction?.user?._id === user._id
+      ? "↩️ Thu hồi"
+      : null,
+    "🗑️ Xóa phía tôi",
+    "📤 Chuyển tiếp",
+    "💬 Trả lời",
+    selectedMessageForAction?.pinned ? "📌 Bỏ ghim" : "📌 Ghim",
+  ].filter(Boolean)}
+  onSelect={async (option, msg) => {
+    if (option === "↩️ Thu hồi") {
+      try {
+        await recallMessage(msg._id);
+        const isPinned = pinnedMessages.some((m) => m._id === msg._id);
+        if (isPinned) {
+          await unpinMessage(msg._id, user._id);
+        }
+        setMessages((prevMessages) =>
+          prevMessages.map((m) =>
+            m._id === msg._id
+              ? {
+                  ...m,
+                  text: t("message.recalled"),
+                  recalled: true,
+                  files: [],
+                  poll: null,
+                }
+              : m
+          )
+        );
+        setPinnedMessages((prevPinned) =>
+          prevPinned.filter((m) => m._id !== msg._id)
+        );
+        await fetchPinnedMessages();
+      } catch (error) {
+        console.error("Lỗi thu hồi tin nhắn:", error);
+        Alert.alert("Lỗi", "Không thể thu hồi tin nhắn.");
+      }
+    } else if (option === "🗑️ Xóa phía tôi") {
+      try {
+        await deleteMessageForMe(msg._id, user._id);
+        setMessages((prevMessages) =>
+          prevMessages.filter((m) => m._id !== msg._id)
+        );
+        setPinnedMessages((prevPinned) =>
+          prevPinned.filter((m) => m._id !== msg._id)
+        );
+      } catch (error) {
+        Alert.alert("Lỗi", "Không thể xóa tin nhắn vào lúc này.");
+      }
+    } else if (option === "📤 Chuyển tiếp") {
+      setMessageToForward(msg);
+      setForwardModalVisible(true);
+    } else if (option === "💬 Trả lời") {
+      setReplyingTo(msg);
+    } else if (option === "📌 Ghim") {
+      try {
+        await pinMessage(msg._id, user._id);
+        setMessages((prevMessages) =>
+          prevMessages.map((m) =>
+            m._id === msg._id ? { ...m, pinned: true } : m
+          )
+        );
+        await fetchPinnedMessages();
+      } catch (error) {
+        Alert.alert("Lỗi", error.msg || "Không thể ghim tin nhắn.");
+      }
+    } else if (option === "📌 Bỏ ghim") {
+      try {
+        await unpinMessage(msg._id, user._id);
+        setMessages((prevMessages) =>
+          prevMessages.map((m) =>
+            m._id === msg._id ? { ...m, pinned: false } : m
+          )
+        );
+        await fetchPinnedMessages();
+      } catch (error) {
+        Alert.alert("Lỗi", error.msg || "Không thể bỏ ghim tin nhắn.");
+      }
+    }
+  }}
+  message={selectedMessageForAction}
+  emojiOptions={emojiOptions}
+  onEmojiSelect={async (emoji, msg) => {
+    try {
+      await reactToMessage(msg._id, user._id, emoji);
+      // Cập nhật trạng thái messages cục bộ
+      setMessages((prevMessages) =>
+        prevMessages.map((m) =>
+          m._id === msg._id
+            ? {
+                ...m,
+                reactions: [
+                  ...(m.reactions || []).filter((r) => r.userId !== user._id),
+                  { userId: user._id, emoji },
+                ],
               }
-            } else if (option === "📤 Chuyển tiếp") {
-              setMessageToForward(msg);
-              setForwardModalVisible(true);
-            } else if (option === "💬 Trả lời") {
-              setReplyingTo(msg);
-            } else if (option === "📌 Ghim") {
-              try {
-                await pinMessage(msg._id, user._id); // Thêm user._id
-                setMessages((prevMessages) =>
-                  prevMessages.map((m) =>
-                    m._id === msg._id ? { ...m, pinned: true } : m
-                  )
-                );
-                fetchPinnedMessages();
-              } catch (error) {
-                Alert.alert("Lỗi", error.msg || "Không thể ghim tin nhắn.");
-              }
-            } else if (option === "📌 Bỏ ghim") {
-              try {
-                await unpinMessage(msg._id, user._id); // Thêm user._id
-                setMessages((prevMessages) =>
-                  prevMessages.map((m) =>
-                    m._id === msg._id ? { ...m, pinned: false } : m
-                  )
-                );
-                fetchPinnedMessages();
-              } catch (error) {
-                Alert.alert("Lỗi", error.msg || "Không thể bỏ ghim tin nhắn.");
-              }
-            }
-          }}
-          message={selectedMessageForAction}
-          emojiOptions={emojiOptions}
-          onEmojiSelect={async (emoji, msg) => {
-            await reactToMessage(msg._id, user._id, emoji);
-            fetchMessages();
-          }}
-        />
+            : m
+        )
+      );
+    } catch (error) {
+      console.error("Lỗi react tin nhắn:", error);
+      Alert.alert("Lỗi", "Không thể thêm phản hồi emoji.");
+    }
+  }}
+/>
         <ReactionModal
           isVisible={reactionModalVisible}
           onClose={() => setReactionModalVisible(false)}
@@ -1713,12 +1806,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    maxWidth: Dimensions.get("window").width * 0.75, // Giới hạn 75% chiều rộng màn hình
+    flexShrink: 1, // Cho phép bubble co lại nếu nội dung dài
   },
   bubbleLeft: {
-    marginRight: 20,
+    marginRight: 100,
+    // marginLeft: 12, // Thêm margin trái để căn chỉnh đẹp
   },
   bubbleRight: {
-    marginLeft: 20,
+    marginLeft: 100,
+    // marginRight: 12, // Thêm margin phải để căn chỉnh đẹp
   },
   avatar: {
     width: 36,

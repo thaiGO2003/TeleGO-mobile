@@ -146,13 +146,19 @@
     "requestRejected": "Đã từ chối lời mời kết bạn",
     "errorFetchingRequests": "Lỗi khi tải danh sách yêu cầu kết bạn",
     "errorAccepting": "Không thể chấp nhận lời mời kết bạn",
-    "errorRejecting": "Không thể từ chối lời mời kết bạn"
+    "errorRejecting": "Không thể từ chối lời mời kết bạn",
+    "cancel": "Huỷ",
+    "confirm": "Xác nhận",
+    "confirmUnfriendTitle": "Xác nhận huỷ kết bạn",
+    "confirmUnfriendMessage" : "",
+    "unfriendSuccess": "Huỷ kết bạn thành công",
+    "friend.unfriendError": "Lỗi huỷ kết bạn"
   },
   "contact": {
     "info":"Thông tin người dùng",
     "addFriend": "Thêm bạn bè",
     "requestSent": "Yêu cầu kết bạn đã gửi",
-    "alreadyFriends": "Cả 2 bạn đều là bạn bè rồi",
+    "alreadyFriends": "Cả 2 bạn đã là bạn bè",
     "chat": "Nhắn tin",
     "friendRequest": "Yêu cầu kết bạn",
     "title": "Danh bạ",
