@@ -31,47 +31,11 @@ const SettingScreen = ({ navigation }) => {
       screen: "Profile",
     },
     {
-      icon: "chatbubble-outline",
-      label: t("setting.message"),
-      IconComponent: Ionicons,
-      screen: "Message",
-    },
-    {
-      icon: "shield-lock-open-outline",
-      label: t("setting.accountSecurity"),
-      IconComponent: MaterialCommunityIcons,
-      screen: "AccountSecurity",
-    },
-    {
-      icon: "light-down",
-      label: t("setting.privacy"),
-      IconComponent: Entypo,
-      screen: "Privacy",
-    },
-    {
-      icon: "notifications-outline",
-      label: t("setting.notification"),
-      IconComponent: Ionicons,
-      screen: "Notification",
-    },
-    {
       icon: "paintbrush",
       label: t("setting.languageAndAppearance"),
       IconComponent: Octicons,
       screen: "ChangeSystemAppearance",
-    },
-    {
-      icon: "help-circle-outline",
-      label: t("setting.about"),
-      IconComponent: Ionicons,
-      screen: "About",
-    },
-    {
-      icon: "user-plus",
-      label: t("setting.switchAccount"),
-      IconComponent: Feather,
-      screen: "SwitchAccount",
-    },
+    }
   ];
 
   return (

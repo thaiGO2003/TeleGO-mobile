@@ -53,7 +53,9 @@ const FriendList = ({ data, onPressItem, navigation, onUnfriend }) => {
         return (
           <TouchableOpacity
             key={item._id || index}
-            onPress={() => navigation.navigate("Chat", { otherUserIds: [friend._id] })}
+            onPress={() =>
+              navigation.navigate("Chat", { otherUserIds: [friend._id] })
+            }
             style={{
               paddingVertical: index === 0 ? 0 : 10,
               flexDirection: "row",
@@ -79,10 +81,13 @@ const FriendList = ({ data, onPressItem, navigation, onUnfriend }) => {
                 gap: 12,
                 alignItems: "center",
                 marginRight: 8,
+                flexWrap: "wrap", // Cho phép xuống dòng
+                flexShrink: 1, // Cho phép co lại nếu không đủ chỗ
               }}
             >
               <TouchableOpacity onPress={() => handleViewProfile(friend._id)}>
-                <Ionicons name="eye" size={30} color="purple" /> {/* Eye icon */}
+                <Ionicons name="eye" size={30} color="purple" />{" "}
+                {/* Eye icon */}
               </TouchableOpacity>
 
               <TouchableOpacity

@@ -149,6 +149,7 @@
     "errorRejecting": "Không thể từ chối lời mời kết bạn"
   },
   "contact": {
+    "info":"Thông tin người dùng",
     "addFriend": "Thêm bạn bè",
     "requestSent": "Yêu cầu kết bạn đã gửi",
     "alreadyFriends": "Cả 2 bạn đều là bạn bè rồi",

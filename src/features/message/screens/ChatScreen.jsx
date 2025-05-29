@@ -66,7 +66,7 @@ const ChatScreen = ({ navigation, route }) => {
   const { user } = useContext(AuthContext);
   const [groupInfo, setGroupInfo] = useState(null);
   const { otherUserIds, groupId } = route.params;
-  const percentWidth = 100;
+  const percentWidth = 90;
   const [isSending, setIsSending] = useState(false);
   const spinValue = useRef(new Animated.Value(0)).current;
   const [pendingFiles, setPendingFiles] = useState([]);
